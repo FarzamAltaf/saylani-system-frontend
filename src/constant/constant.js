@@ -6,6 +6,14 @@ export const BASE_URL = devUrl
 export const AppRoutes = {
     signup: BASE_URL + "auth/register",
     login: BASE_URL + "auth/login",
+    logout: BASE_URL + "auth/logout",
+    updateProfile: BASE_URL + "auth/updateProfile",
+    users: BASE_URL + "user/user",
+    updatePasscode: BASE_URL + "auth/updatePassword",
+    AdminAddLoan: BASE_URL + "admin/addloan",
+    AdminGetLoan: BASE_URL + "admin/getloans",
+    AdminAddLoanCategory: BASE_URL + "adminCat/addCategory",
+    AdminGetLoanCategory: BASE_URL + "adminCat/getCategory",
 }
 
 

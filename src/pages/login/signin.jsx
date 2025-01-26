@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { AppRoutes } from "../../constant/constant";
 import { notification } from "antd";
 import Cookies from "js-cookie";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router";
 
 const Signin = () => {
+
     const [formData, setFormData] = useState({
         email: "",
         password: "",
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const userId = Cookies.get("userId");
+        if (userId) {
+            navigate("/user/update-password");
+        }
+    }, [navigate]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -45,13 +54,14 @@ const Signin = () => {
                 });
 
                 Cookies.set("authToken", response.data.data.token, { expires: 7 });
-                const { password, ...userData } = response.data.data.user;
+                // const { password, ...userData } = response.data.data.user;
+                const { ...userData } = response.data.data.user;
                 Cookies.set("user", JSON.stringify(userData), { expires: 7 });
-
+                window.location.reload();
                 if (userData.role === "user") {
-                    navigate("/dashboard/user");
+                    navigate("/user/dashboard");
                 } else if (userData.role === "admin") {
-                    navigate("/dashboard/admin");
+                    navigate("/admin/dashboard");
                 }
             } else {
                 notification.error({
@@ -139,9 +149,9 @@ const Signin = () => {
 
                     <p className="mt-10 text-center text-sm text-gray-500">
                         Not a member?{' '}
-                        <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500">
-                            Start a 14 day free trial
-                        </a>
+                        <Link to={"/signup"} className="font-semibold text-indigo-600 hover:text-indigo-500">
+                            Create an account
+                        </Link>
                     </p>
                 </div>
             </div>

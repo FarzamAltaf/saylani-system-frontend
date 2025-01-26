@@ -3,27 +3,65 @@ import axios from "axios";
 import { AppRoutes, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_UPLOAD_URL } from "../../constant/constant";
 import { notification } from "antd";
 import { useNavigate } from "react-router";
+import Cookies from "js-cookie";
 
 const Signup = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [imageLoading, setImageLoading] = useState(false); // To handle image upload loading
+    const [imageLoading, setImageLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
         email: "",
-        password: "",
+        cnic: "",
         image: null,
     });
+    const [errors, setErrors] = useState({});
 
+    // Handle input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+        validateField(name, value);
     };
 
+    // Handle image file change
     const handleImageChange = (e) => {
-        setFormData({ ...formData, image: e.target.files[0] });
+        const file = e.target.files[0];
+        setFormData({ ...formData, image: file });
+        if (!file) {
+            setErrors((prev) => ({ ...prev, image: "Please upload an image." }));
+        } else {
+            setErrors((prev) => ({ ...prev, image: "" }));
+        }
     };
 
+    // Validate form fields
+    const validateField = (name, value) => {
+        let error = "";
+        if (!value) {
+            error = "This field is required.";
+        } else if (name === "email" && !/^\S+@\S+\.\S+$/.test(value)) {
+            error = "Please enter a valid email address.";
+        } else if (name === "cnic" && !/^\d+$/.test(value)) {
+            error = "CNIC must contain only numbers.";
+        }
+        setErrors((prev) => ({ ...prev, [name]: error }));
+    };
+
+    // Validate the entire form
+    const validateForm = () => {
+        const newErrors = {};
+        if (!formData.name) newErrors.name = "Full name is required.";
+        if (!formData.email) newErrors.email = "Email is required.";
+        if (!formData.cnic) newErrors.cnic = "CNIC is required.";
+        if (!formData.image) newErrors.image = "Image is required.";
+        if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) newErrors.email = "Please enter a valid email.";
+        if (formData.cnic && !/^\d+$/.test(formData.cnic)) newErrors.cnic = "CNIC must contain only numbers.";
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    // Upload image to Cloudinary
     const uploadImageToCloudinary = async (file) => {
         const formData = new FormData();
         formData.append("file", file);
@@ -32,7 +70,7 @@ const Signup = () => {
 
         try {
             const response = await axios.post(CLOUDINARY_UPLOAD_URL, formData);
-            return response.data.secure_url; // Return the image URL from Cloudinary
+            return response.data.secure_url;
         } catch (error) {
             notification.error({
                 message: "Image Upload Failed",
@@ -42,28 +80,25 @@ const Signup = () => {
         }
     };
 
+    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!formData.name || !formData.email || !formData.password || !formData.image) {
-            notification.error({
-                message: "Please complete the form",
-                description: "All fields are required, including the image upload.",
-            });
-
-            return;
-        }
+        if (!validateForm()) return;
 
         setLoading(true);
         setImageLoading(true);
+
         try {
-            const imageUrl = await uploadImageToCloudinary(formData.image);
+            let imageUrl = "";
+            if (formData.image) {
+                imageUrl = await uploadImageToCloudinary(formData.image);
+            }
 
             const userData = {
                 name: formData.name,
                 email: formData.email,
-                password: formData.password,
-                imageUrl: imageUrl,
+                cnic: formData.cnic,
+                imageUrl: imageUrl, // Send image URL only if image is uploaded
             };
 
             const response = await axios.post(AppRoutes.signup, userData, {
@@ -80,14 +115,25 @@ const Signup = () => {
             setFormData({
                 name: "",
                 email: "",
-                password: "",
+                cnic: "",
                 image: null,
             });
-            navigate("/signin");
+
+            if (response.data.data.otp) {
+                navigate("/verify");
+                const { ...userData } = response.data.data.user;
+                Cookies.set("user", JSON.stringify(userData), { expires: 7 });
+                Cookies.set("userId", JSON.stringify(userData._id), { expires: 7 });
+                Cookies.set("authToken", response.data.data.token, { expires: 7 });
+                Cookies.set("verificationCode", response.data.data.otp, { expires: 15 / (24 * 60) });
+            } else {
+                console.log("OTP not found in the response:", response.data);
+            }
+
         } catch (error) {
             notification.error({
                 message: "Signup Failed",
-                description: ` User already exist ${error}`,
+                description: `Error: ${error.response?.data?.message || error.message}`,
             });
         } finally {
             setLoading(false);
@@ -95,14 +141,13 @@ const Signup = () => {
         }
     };
 
-
     return (
         <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-sm">
                 <img
                     alt="Your Company"
-                    src="https://tailwindui.com/plus/img/logos/mark.svg?color=indigo&shade=600"
-                    className="mx-auto h-10 w-auto"
+                    src="https://res.cloudinary.com/dd2alel5h/image/upload/v1737803880/sayl_qsabxv.png"
+                    className="mx-auto h-30 w-auto"
                 />
                 <h2 className="mt-10 text-center text-2xl font-bold tracking-tight text-gray-900">
                     Sign up to create an account
@@ -122,9 +167,9 @@ const Signup = () => {
                                 type="text"
                                 value={formData.name}
                                 onChange={handleChange}
-                                // required
-                                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600"
+                                className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 ${errors.name ? "outline-red-500" : "outline-gray-300"} focus:outline-2 focus:outline-indigo-600`}
                             />
+                            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
                         </div>
                     </div>
 
@@ -139,9 +184,27 @@ const Signup = () => {
                                 type="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                // required
-                                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600"
+                                className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 ${errors.email ? "outline-red-500" : "outline-gray-300"} focus:outline-2 focus:outline-indigo-600`}
                             />
+                            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label htmlFor="cnic" className="block text-sm font-medium text-gray-900">
+                            CNIC
+                        </label>
+                        <div className="mt-2">
+                            <input
+                                id="cnic"
+                                name="cnic"
+                                type="text"
+                                value={formData.cnic}
+                                onChange={handleChange}
+                                placeholder="Enter your CNIC without dashes"
+                                className={`block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 ${errors.cnic ? "outline-red-500" : "outline-gray-300"} focus:outline-2 focus:outline-indigo-600`}
+                            />
+                            {errors.cnic && <p className="text-red-500 text-sm mt-1">{errors.cnic}</p>}
                         </div>
                     </div>
 
@@ -154,47 +217,24 @@ const Signup = () => {
                                 id="image"
                                 name="image"
                                 type="file"
+                                accept="image/*"
                                 onChange={handleImageChange}
-                                // required
-                                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600"
+                                className={`block w-full text-base ${errors.image ? "outline-red-500" : "outline-gray-300"} focus:outline-2 focus:outline-indigo-600`}
                             />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-900">
-                            Password
-                        </label>
-                        <div className="mt-2">
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                value={formData.password}
-                                onChange={handleChange}
-                                // required
-                                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600"
-                            />
+                            {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
                         </div>
                     </div>
 
                     <div>
                         <button
                             type="submit"
-                            className={`flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                            disabled={loading || imageLoading}
+                            disabled={loading}
+                            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg"
                         >
-                            {imageLoading ? "Uploading Image..." : loading ? "Signing up..." : "Sign up"}
+                            {loading ? "Signing Up..." : "Sign Up"}
                         </button>
                     </div>
                 </form>
-
-                <p className="mt-10 text-center text-sm text-gray-500">
-                    Already a member?{' '}
-                    <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500">
-                        Sign in here
-                    </a>
-                </p>
             </div>
         </div>
     );

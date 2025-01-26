@@ -21,7 +21,7 @@ const User = () => {
             <p><strong>Username:</strong> {user.name}</p>
             <p><strong>Email:</strong> {user.email}</p>
             <p><strong>Role:</strong> {user.role}</p>
-            <p><strong>Token:</strong> {Cookies.get("authToken")}</p>
+            {/* <p><strong>Token:</strong> {Cookies.get("authToken")}</p> */}
         </div>
     );
 };
