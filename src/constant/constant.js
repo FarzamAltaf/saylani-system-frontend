@@ -1,5 +1,6 @@
 
-const devUrl = 'http://localhost:4000/';
+// const devUrl = 'http://localhost:4000/';
+const devUrl = 'https://saylani-system-backend.vercel.app/';
 
 export const BASE_URL = devUrl
 
